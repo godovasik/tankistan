@@ -5,96 +5,56 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"io"
 	"net/http"
+	"os"
 )
 
-type ResponseWrapper struct {
-	Response     Response `json:"response"`
-	ResponseType string   `json:"responseType"`
+func parse(resp *http.Response) (ResponseWrapper, error) {
+	var data ResponseWrapper
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return data, err
+	}
+
+	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	err = json.Unmarshal(body, &data)
+
+	return data, err
 }
 
-type Response struct {
-	Name              string   `json:"name"`
-	HasPremium        bool     `json:"hasPremium"`
-	GearScore         int      `json:"GearScore"`
-	Deaths            int      `json:"deaths"`
-	Kills             int      `json:"kills"`
-	EarnedCrystals    int      `json:"earnedCrystals"`
-	CaughtGolds       int      `json:"caughtGolds"`
-	TurretsPlayed     []Item   `json:"turretsPlayed"`
-	HullsPlayed       []Item   `json:"hullsPlayed"`
-	DronesPlayed      []Item   `json:"dronesPlayed"`
-	PaintsPlayed      []Item   `json:"paintsPlayed"`
-	ResistanceModules []Item   `json:"resistanceModules"`
-	ModesPlayed       []Item   `json:"modesPlayed"`
-	PreviousRating    Rating   `json:"previousRating"`
-	Rating            Rating   `json:"rating"`
-	Rank              int      `json:"rank"`
-	Score             int      `json:"score"`
-	ScoreBase         int      `json:"scoreBase"`
-	ScoreNext         int      `json:"scoreNext"`
-	SuppliesUsage     []Supply `json:"suppliesUsage"`
-	//Presents        []Present`json:"presents"`
-}
-
-type Item struct {
-	Grade       int    `json:"grade"`
-	Id          int    `json:"id"`
-	Name        string `json:"name"`
-	ScoreEarned int    `json:"scoreEarned"`
-	TimePlayed  int    `json:"timePlayed"`
-	Type        string `json:"type"` // for modes
-	//ImageUrl  string `json:"imageUrl"`
-}
-
-type Rating struct {
-	Crystals   Info `json:"crystals"`
-	Efficiency Info `json:"efficiency"`
-	Golds      Info `json:"golds"`
-	Score      Info `json:"score"`
-}
-
-type Info struct {
-	Position int `json:"position"`
-	Value    int `json:"value"`
-}
-
-type Supply struct {
-	Name   string `json:"name"`
-	Usages int    `json:"usages"`
-}
-
-func main() {
-	username := "silly" // Replace with the desired username
+func sendRequest(username string) (*http.Response, error) {
 	url := fmt.Sprintf("https://ratings.tankionline.com/api/eu/profile/?user=%s&lang=en", username)
 
 	// Send GET request
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Println("Error making request:", err)
+		return nil, err
+	}
+
+	return resp, err
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("No arguments provided")
 		return
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
+	username := os.Args[1] // Replace with the desired username
 
-		}
-	}(resp.Body)
-
-	// Read response body
-	body, err := io.ReadAll(resp.Body)
+	resp, err := sendRequest(username)
 	if err != nil {
-		fmt.Println("Error reading response:", err)
+		fmt.Println("fuck you")
 		return
 	}
+	defer resp.Body.Close()
 
-	var json = jsoniter.ConfigCompatibleWithStandardLibrary
-	var data ResponseWrapper
-	// Parse JSON into struct
-	err = json.Unmarshal(body, &data)
+	data, err := parse(resp)
 	if err != nil {
-		fmt.Println("Error parsing JSON:", err)
+		fmt.Println("fuck you second time: ", err)
 		return
 	}
 
-	fmt.Printf("%d\n", data.Response.Score)
+	fmt.Printf("username: %s\ngs: %d\nk/d = %.2f\n",
+		data.Response.Name, data.Response.GearScore, float32(data.Response.Kills)/float32(data.Response.Deaths))
+
 }
