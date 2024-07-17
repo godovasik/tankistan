@@ -1,10 +1,10 @@
 package main
 
-import "time"
-
-var (
-	HULLS []string = ["Wasp", "Hopper", "Hornet", "Viking"]
-	
+import (
+	"fmt"
+	jsoniter "github.com/json-iterator/go"
+	"io"
+	"net/http"
 )
 
 type ResponseWrapper struct {
@@ -63,30 +63,28 @@ type Supply struct {
 	Usages int    `json:"usages"`
 }
 
-// --- data to save in db ---
+func parse(resp *http.Response) (ResponseWrapper, error) {
+	var data ResponseWrapper
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return data, err
+	}
 
-type Datastamp struct {
-	Timestamp      time.Time
-	Name           string
-	Rank           int
-	Kills          int
-	Deaths         int
-	EarnedCrystals int
-	GearScore             int
-	Hulls          []Thing
-	Turrets        []Thing
-	Drones         []Thing
-	Supplies       []Supply
+	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	err = json.Unmarshal(body, &data)
+
+	return data, err
 }
 
-type Thing struct {
-	name        string
-	scoreEarned int
-	timePlayed  int
-}
+func sendRequest(username string) (*http.Response, error) {
+	url := fmt.Sprintf("https://ratings.tankionline.com/api/eu/profile/?user=%s&lang=en", username)
 
-func (d *Datastamp) Store(data ResponseWrapper) {
-	r := data.Response
-	d.Name, d.Rank, d.Kills, d.Deaths, d.EarnedCrystals, d.GearScore =
-		r.Name, r.Rank, r.Kills, r.Deaths, r.EarnedCrystals, r.GearScore
+	// Send GET request
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Println("Error making request:", err)
+		return nil, err
+	}
+
+	return resp, err
 }
