@@ -13,22 +13,22 @@ var (
 )
 
 type Datastamp struct {
-	Timestamp      time.Time        `bson:"timestamp"`
-	Name           string           `bson:"name"`
-	Rank           int              `bson:"rank"`
-	Kills          int              `bson:"kills"`
-	Deaths         int              `bson:"deaths"`
-	EarnedCrystals int              `bson:"earnedCrystals"`
-	GearScore      int              `bson:"gearScore"`
-	Hulls          map[string]Thing `bson:"hulls"`
-	Turrets        map[string]Thing `bson:"turrets"`
-	Drones         map[string]Thing `bson:"drones"`
-	SuppliesUsed   map[string]int   `bson:"suppliesUsed"`
+	Timestamp      time.Time
+	Name           string
+	Rank           int
+	Kills          int
+	Deaths         int
+	EarnedCrystals int
+	GearScore      int
+	Hulls          map[string]Thing
+	Turrets        map[string]Thing
+	Drones         map[string]Thing
+	SuppliesUsed   map[string]int
 }
 
 type Thing struct {
-	ScoreEarned int `bson:"scoreEarned"`
-	TimePlayed  int `bson:"timePlayed"`
+	ScoreEarned int
+	TimePlayed  int
 }
 
 type kv struct {
