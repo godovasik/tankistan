@@ -83,10 +83,7 @@ func doesUserExist(collection *mongo.Collection, name string) (bool, error) {
 	return count > 0, nil
 }
 
-func listAllUsers(collection *mongo.Collection) error {
-	return nil
-}
-
+// this refreshes user even all is same, will fix later
 func updateUser(collection *mongo.Collection, data Datastamp) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -96,7 +93,7 @@ func updateUser(collection *mongo.Collection, data Datastamp) error {
 		filter := bson.M{"name": data.Name}
 		update := bson.M{
 			"$set": bson.M{
-				"lastupdate": time.Now().Truncate(time.Hour),
+				"lastupdate": time.Now().Truncate(24 * time.Hour),
 			},
 		}
 		_, err = collection.UpdateOne(context.TODO(), filter, update)
@@ -116,14 +113,15 @@ func updateUser(collection *mongo.Collection, data Datastamp) error {
 }
 
 func updateUserData(timestampColl, userColl *mongo.Collection, data Datastamp) error {
-
-	err := insertDatastamp(timestampColl, data)
+	err := updateUser(userColl, data)
 	if err != nil {
 		return err
 	}
-
-	err = updateUser(userColl, data)
-	return err
+	err = insertDatastamp(timestampColl, data)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func sendReqAndUpdateUser(timestampColl, userColl *mongo.Collection, username string) error {
@@ -147,4 +145,35 @@ func sendReqAndUpdateUser(timestampColl, userColl *mongo.Collection, username st
 	err = updateUserData(timestampColl, userColl, compact)
 	return err
 
+}
+
+func listOfUsersFromDB(userColl *mongo.Collection) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	projection := bson.M{"name": 1, "_id": 0}
+
+	cursor, err := userColl.Find(ctx, bson.M{}, options.Find().SetProjection(projection))
+	if err != nil {
+		fmt.Println("amogus")
+	}
+	defer cursor.Close(context.TODO())
+
+	var users []string
+
+	for cursor.Next(context.TODO()) {
+		var result struct {
+			Name string `bson:"name"`
+		}
+		err := cursor.Decode(&result)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, result.Name)
+	}
+
+	if err := cursor.Err(); err != nil {
+		log.Fatal(err)
+	}
+	return users, nil
 }

@@ -111,6 +111,6 @@ func (d *Datastamp) Store(data ResponseWrapper) {
 		d.SuppliesUsed[a.Name] = a.Usages
 	}
 
-	d.Timestamp = time.Now().Truncate(time.Hour)
+	d.Timestamp = time.Now().Truncate(24 * time.Hour)
 
 }
