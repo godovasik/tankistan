@@ -60,7 +60,7 @@ func insertDatastamp(collection *mongo.Collection, data Datastamp) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(data.Name, " added to db")
+		fmt.Println("datastamp for", data.Name, "updated")
 	}
 	return err
 }
@@ -103,7 +103,7 @@ func updateUser(collection *mongo.Collection, data Datastamp) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println("User already exists, updated")
+		fmt.Println(data.Name, "already exists, lastupdate updated")
 		return nil
 	}
 	user := User{data.Name, data.Timestamp, true}
@@ -124,4 +124,27 @@ func updateUserData(timestampColl, userColl *mongo.Collection, data Datastamp) e
 
 	err = updateUser(userColl, data)
 	return err
+}
+
+func sendReqAndUpdateUser(timestampColl, userColl *mongo.Collection, username string) error {
+	resp, err := sendRequest(username)
+	if err != nil {
+		fmt.Println("fuck you")
+		return err
+	}
+
+	data, err := parse(resp)
+	if err != nil {
+		fmt.Println("fuck you second time: ", err)
+		return err
+	}
+	resp.Body.Close()
+
+	var compact Datastamp
+
+	compact.Store(data)
+
+	err = updateUserData(timestampColl, userColl, compact)
+	return err
+
 }
