@@ -6,14 +6,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"log"
 	"os"
 	"time"
 )
 
-var client *mongo.Client
-
-func initMongoDB() {
+func initMongoDB() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -22,16 +21,21 @@ func initMongoDB() {
 	var err error
 	client, err = mongo.Connect(ctx, options.Client().ApplyURI(mongoUrl))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	// Ping the database to verify connection
 	err = client.Ping(ctx, nil)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
+	database = client.Database("tankistan")
+	timestampColl = database.Collection("user_data")
+	userColl = database.Collection("users")
+
 	log.Println("Connected to MongoDB")
+	return nil
 }
 
 func closeMongoDB() {
@@ -45,8 +49,23 @@ func closeMongoDB() {
 	}
 }
 
-func insertDatastamp(collection *mongo.Collection, data Datastamp) error {
-	doesEx, err := doesTimestampExist(collection, data)
+func ensureConnected() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := client.Ping(ctx, readpref.Primary()); err != nil {
+		log.Printf("Lost connection to MongoDB. Attempting to reconnect...")
+		if err := initMongoDB(); err != nil {
+			return fmt.Errorf("failed to reconnect: %v", err)
+		}
+		log.Println("Reconnected successfully")
+	}
+
+	return nil
+}
+
+func insertDatastamp(data Datastamp) error {
+	doesEx, err := doesTimestampExist(timestampColl, data)
 	if err != nil {
 		return err
 	}
@@ -56,7 +75,7 @@ func insertDatastamp(collection *mongo.Collection, data Datastamp) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		_, err = collection.InsertOne(ctx, data)
+		_, err = timestampColl.InsertOne(ctx, data)
 		if err != nil {
 			return err
 		}
@@ -84,10 +103,10 @@ func doesUserExist(collection *mongo.Collection, name string) (bool, error) {
 }
 
 // this refreshes user even all is same, will fix later
-func updateUser(collection *mongo.Collection, data Datastamp) error {
+func updateUser(data Datastamp) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	exists, err := doesUserExist(collection, data.Name)
+	exists, err := doesUserExist(userColl, data.Name)
 	//fmt.Println("93line, exists:", exists)
 	if exists {
 		filter := bson.M{"name": data.Name}
@@ -96,15 +115,15 @@ func updateUser(collection *mongo.Collection, data Datastamp) error {
 				"lastupdate": time.Now().Truncate(24 * time.Hour),
 			},
 		}
-		_, err = collection.UpdateOne(context.TODO(), filter, update)
+		_, err = userColl.UpdateOne(context.TODO(), filter, update)
 		if err != nil {
 			return err
 		}
-		fmt.Println(data.Name, "already exists, lastupdate updated")
+		//fmt.Println(data.Name, "already exists, lastupdate updated")
 		return nil
 	}
 	user := User{data.Name, data.Timestamp, true}
-	_, err = collection.InsertOne(ctx, user)
+	_, err = userColl.InsertOne(ctx, user)
 	if err != nil {
 		return err
 	}
@@ -112,19 +131,19 @@ func updateUser(collection *mongo.Collection, data Datastamp) error {
 	return nil
 }
 
-func updateUserData(timestampColl, userColl *mongo.Collection, data Datastamp) error {
-	err := updateUser(userColl, data)
+func updateUserData(data Datastamp) error {
+	err := updateUser(data)
 	if err != nil {
 		return err
 	}
-	err = insertDatastamp(timestampColl, data)
+	err = insertDatastamp(data)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func sendReqAndUpdateUser(timestampColl, userColl *mongo.Collection, username string) error {
+func sendReqAndUpdateUser(username string) error {
 	resp, err := sendRequest(username)
 	if err != nil {
 		fmt.Println("fuck you")
@@ -142,12 +161,12 @@ func sendReqAndUpdateUser(timestampColl, userColl *mongo.Collection, username st
 
 	compact.Store(data)
 
-	err = updateUserData(timestampColl, userColl, compact)
+	err = updateUserData(compact)
 	return err
 
 }
 
-func listOfUsersFromDB(userColl *mongo.Collection) ([]string, error) {
+func listOfUsersFromDB() ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 

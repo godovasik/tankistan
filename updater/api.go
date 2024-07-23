@@ -27,6 +27,6 @@ func makeNewUserHandler(timestampColl, userColl *mongo.Collection) http.HandlerF
 		}
 
 		fmt.Fprintf(w, "Received new user: %s", user.Username)
-		err = sendReqAndUpdateUser(timestampColl, userColl, user.Username)
+		err = sendReqAndUpdateUser(user.Username)
 	}
 }
