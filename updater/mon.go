@@ -103,36 +103,37 @@ func doesUserExist(collection *mongo.Collection, name string) (bool, error) {
 }
 
 // this refreshes user even all is same, will fix later
-func updateUser(data Datastamp) error {
+func updateUser(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	exists, err := doesUserExist(userColl, data.Name)
+	exists, err := doesUserExist(userColl, name)
 	//fmt.Println("93line, exists:", exists)
+	timeNowTrunc := time.Now().Truncate(24 * time.Hour)
 	if exists {
-		filter := bson.M{"name": data.Name}
+		filter := bson.M{"name": name}
 		update := bson.M{
 			"$set": bson.M{
-				"lastupdate": time.Now().Truncate(24 * time.Hour),
+				"lastupdate": timeNowTrunc,
 			},
 		}
 		_, err = userColl.UpdateOne(context.TODO(), filter, update)
 		if err != nil {
 			return err
 		}
-		//fmt.Println(data.Name, "already exists, lastupdate updated")
+		//fmt.Println(name, "already exists, lastupdate updated")
 		return nil
 	}
-	user := User{data.Name, data.Timestamp, true}
+	user := User{name, timeNowTrunc, true}
 	_, err = userColl.InsertOne(ctx, user)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("User %s succesfully added to db\n", data.Name)
+	fmt.Printf("User %s succesfully added to db\n", name)
 	return nil
 }
 
 func updateUserData(data Datastamp) error {
-	err := updateUser(data)
+	err := updateUser(data.Name)
 	if err != nil {
 		return err
 	}

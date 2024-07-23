@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go.mongodb.org/mongo-driver/mongo"
 	"log"
+	"net/http"
 	"time"
 )
 
@@ -22,22 +23,21 @@ func main() {
 		log.Fatal(err)
 	}
 
+	http.HandleFunc("/newUser", makeNewUserHandler(timestampColl, userColl))
+	port := ":8080"
+	fmt.Printf("Server is listening on port %s\n", port)
+	go func() {
+		fmt.Println("Starting server...")
+		err := http.ListenAndServe(":8080", nil)
+		if err != nil {
+			fmt.Println("Server error:", err)
+			return
+		}
+	}()
+
 	for {
-
-		//http.HandleFunc("/newUser", makeNewUserHandler(timestampColl, userColl))
-		//port := ":8080"
-		//fmt.Printf("Server is listening on port %s\n", port)
-		//go func() {
-		//	fmt.Println("Starting server...")
-		//	err := http.ListenAndServe(":8080", nil)
-		//	if err != nil {
-		//		fmt.Println("Server error:", err)
-		//		return
-		//	}
-		//}()
-
 		now := time.Now()
-		next := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Add(24 * time.Hour)
+		next := time.Date(now.Year(), now.Month(), now.Day(), 0, 10, 0, 0, now.Location()).Add(24 * time.Hour)
 		duration := next.Sub(now)
 		fmt.Println("sleepy joe:", duration)
 		time.Sleep(duration)
@@ -62,6 +62,7 @@ func main() {
 			time.Sleep(3 * time.Second)
 		}
 		fmt.Println("im done!")
+		//time.Sleep(1 * time.Minute)
 
 	}
 }
